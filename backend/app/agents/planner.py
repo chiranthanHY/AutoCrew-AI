@@ -1,48 +1,102 @@
-from typing import Dict, Any
+"""
+planner.py — PlannerAgent for AutoCrew AI
+------------------------------------------
+Decomposes a high-level user task into a structured, step-by-step execution
+plan, assigning each step to the most appropriate specialist agent.
+"""
+
+import logging
+from typing import Any, Dict
+
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import HumanMessage
+
 from app.agents.base import BaseAgent
 from app.schemas.state import Plan
 
-PLANNER_SYSTEM_PROMPT = """You are a highly capable Planner Agent for AutoCrew AI.
-Your objective is to take a high-level task and break it down into a sequence of detailed, actionable steps.
-For each step, assign the most appropriate agent role (e.g., Researcher, Executor, Writer, Critic).
-Ensure the plan is comprehensive, logically ordered, and designed to achieve the user's overarching goal.
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# System prompt
+# ---------------------------------------------------------------------------
+
+PLANNER_SYSTEM_PROMPT = """You are the **Planner Agent** for AutoCrew AI — an elite \
+multi-agent automation system.
+
+Your responsibility is to receive a high-level user task and decompose it into a \
+precise, ordered sequence of steps that other specialist agents will execute.
+
+## Available Agents
+| Agent Name   | Responsibility                                                          |
+|--------------|-------------------------------------------------------------------------|
+| Researcher   | Searches the web, gathers facts, retrieves up-to-date information.      |
+| Executor     | Produces written deliverables: reports, posts, tables, trip plans, etc. |
+| Critic       | Reviews quality, checks accuracy and completeness. Scores output 1–10.  |
+| Verifier     | Polishes the final output, resolves critique feedback, finalises work.  |
+
+## Planning Rules
+1. Every plan MUST start with a Researcher step unless the task is purely creative.
+2. Every plan MUST include a Critic step before the final Verifier step.
+3. Steps must be logically ordered with no circular dependencies.
+4. Descriptions must be specific and actionable — not vague placeholders.
+5. Assign only ONE agent per step.
+6. Use between 3 and 8 steps.
+
+## Output Format
+Return a structured JSON object matching the Plan schema exactly.
 """
+
+# ---------------------------------------------------------------------------
+# Agent class
+# ---------------------------------------------------------------------------
+
 
 class PlannerAgent(BaseAgent):
     """
-    Planner Agent responsible for breaking down high-level tasks into detailed execution plans.
+    Planner Agent — breaks down tasks into structured multi-agent plans.
+
+    Returns a ``Plan`` Pydantic object whose ``steps`` list is serialised into
+    the ``plan`` field of ``AgentState``.
     """
-    def __init__(self, llm: BaseChatModel):
-        super().__init__(llm=llm, system_prompt=PLANNER_SYSTEM_PROMPT)
-        
-    def invoke(self, state: Dict[str, Any], **kwargs) -> Dict[str, Any]:
-        """
-        Generates a structured plan based on the current task and conversation history.
-        Overrides the standard invoke to utilize structured output returning the Plan schema.
-        
-        Returns:
-            Dict[str, Any]: State update dictionary containing the generated "plan".
-        """
-        messages = state.get("messages", []).copy()
-        task = state.get("task", "")
-        
-        # Explicitly inject the task as a prompt if provided
-        if task:
-            task_msg = f"Please create a detailed plan for the following task:\n\n{task}"
-            messages.append(HumanMessage(content=task_msg))
-            
-        # Use structured output to enforce the Plan schema format
-        structured_plan: Plan = self.invoke_structured(
-            state={"messages": messages}, 
-            output_schema=Plan,
-            **kwargs
+
+    def __init__(self, llm: BaseChatModel) -> None:
+        super().__init__(
+            llm=llm,
+            system_prompt=PLANNER_SYSTEM_PROMPT,
+            agent_name="PlannerAgent",
         )
-        
-        # Convert the Pydantic plan back to a list of dicts to match the state schema
+
+    def invoke(self, state: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
+        """
+        Generate a step-by-step plan for the current task.
+
+        Reads ``state["task"]`` and produces a structured plan that is written
+        back to ``state["plan"]`` as a list of dicts.
+
+        Args:
+            state (Dict[str, Any]): Current LangGraph state.
+            **kwargs: Unused; kept for interface compatibility.
+
+        Returns:
+            Dict[str, Any]: State update containing ``plan`` (list[dict]).
+        """
+        task = state.get("task", "").strip()
+        if not task:
+            logger.warning("[PlannerAgent] No task found in state.")
+            return {"plan": []}
+
+        prompt = (
+            f"Create a detailed execution plan for the following task:\n\n"
+            f"**Task:** {task}\n\n"
+            "Return a structured JSON plan using the Plan schema."
+        )
+
+        structured_plan: Plan = self.invoke_structured(
+            state=state,
+            output_schema=Plan,
+            extra_human_message=prompt,
+        )
+
         plan_dicts = [step.model_dump() for step in structured_plan.steps]
-        
-        return {
-            "plan": plan_dicts
-        }
+        logger.info("[PlannerAgent] Generated plan with %d steps.", len(plan_dicts))
+
+        return {"plan": plan_dicts}
