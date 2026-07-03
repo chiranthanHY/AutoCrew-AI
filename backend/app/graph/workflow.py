@@ -370,6 +370,14 @@ _sync_pool = None
 _async_pool = None
 
 
+def _sync_ping(conn) -> None:
+    conn.execute("SELECT 1")
+
+
+async def _async_ping(conn) -> None:
+    await conn.execute("SELECT 1")
+
+
 def _create_sync_checkpointer():
     global _sync_pool
     try:
@@ -386,7 +394,11 @@ def _create_sync_checkpointer():
         if _sync_pool is None:
             _sync_pool = ConnectionPool(
                 conninfo=conn_string,
+                min_size=0,
                 max_size=5,
+                max_idle=10,
+                max_lifetime=600,
+                check=_sync_ping,
                 kwargs={"autocommit": True, "row_factory": dict_row, "prepare_threshold": None}
             )
         checkpointer = PostgresSaver(_sync_pool)
@@ -417,7 +429,11 @@ async def _create_async_checkpointer():
         if _async_pool is None:
             _async_pool = AsyncConnectionPool(
                 conninfo=conn_string,
+                min_size=0,
                 max_size=5,
+                max_idle=10,
+                max_lifetime=600,
+                check=_async_ping,
                 open=False,
                 kwargs={"autocommit": True, "row_factory": dict_row, "prepare_threshold": None}
             )
@@ -433,6 +449,7 @@ async def _create_async_checkpointer():
             exc,
         )
         return None
+
 
 
 # ===========================================================================
