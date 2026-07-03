@@ -1,36 +1,81 @@
-services:
-  db:
-    image: pgvector/pgvector:pg16
-    container_name: autocrew_db
-    restart: always
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-autocrew}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+# ============================================================
+# docker-compose.yml — AutoCrew AI
+# Neon Serverless PostgreSQL Edition
+# ============================================================
+#
+# Usage:
+#   Option A — Neon (default):
+#     docker-compose up backend
+#     (Postgres service is DISABLED — Neon is used instead)
+#
+#   Option B — Local Postgres:
+#     1. Uncomment the `db` service and `postgres_data` volume below.
+#     2. Change DATABASE_URL in your .env to the local connection string.
+#     3. docker-compose up
+#
+# ============================================================
 
+services:
+
+  # ──────────────────────────────────────────────────────────
+  # Local PostgreSQL (with PGVector) — disabled when using Neon
+  # Uncomment this entire block to use local Postgres instead of Neon.
+  # ──────────────────────────────────────────────────────────
+  # db:
+  #   image: pgvector/pgvector:pg16
+  #   container_name: autocrew_db
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_USER:-autocrew}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-autocrew}
+  #     POSTGRES_DB: ${POSTGRES_DB:-autocrew}
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-autocrew}"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # ──────────────────────────────────────────────────────────
+  # AutoCrew AI — FastAPI Backend
+  # ──────────────────────────────────────────────────────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: autocrew_backend
-    restart: always
-    volumes:
-      - ./backend:/app
+    restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - .env               # Reads DATABASE_URL and all other secrets from .env
     environment:
-      - POSTGRES_SERVER=db
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-autocrew}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-    depends_on:
-      - db
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      # These override or supplement .env values when needed
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-require}
+      # Uncomment to enable LangSmith tracing:
+      # - LANGCHAIN_TRACING_V2=true
+      # - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+      # - LANGCHAIN_PROJECT=autocrew_ai
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    # Uncomment if using local Postgres instead of Neon:
+    # depends_on:
+    #   db:
+    #     condition: service_healthy
 
-volumes:
-  postgres_data:
+# ──────────────────────────────────────────────────────────
+# Volumes (only needed for local Postgres)
+# ──────────────────────────────────────────────────────────
+# volumes:
+#   postgres_data:

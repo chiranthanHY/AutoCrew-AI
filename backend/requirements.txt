@@ -1,33 +1,65 @@
+# ============================================================
+# AutoCrew AI — Backend Dependencies
+# Neon Serverless PostgreSQL + PGVector Edition
+# ============================================================
+
+# ------------------------------------
 # Web Framework
+# ------------------------------------
 fastapi>=0.111.0
 uvicorn[standard]>=0.30.0
+sse-starlette>=1.8.2          # Server-Sent Events for streaming
 pydantic>=2.7.0
 pydantic-settings>=2.2.0
 python-dotenv>=1.0.1
+python-multipart>=0.0.9       # Form data / file uploads
 
+# ------------------------------------
 # AI / Orchestration
-langchain>=0.2.0
-langchain-core>=0.2.0
-langgraph>=0.1.0
-langchain-openai>=0.1.0
-langchain-anthropic>=0.1.0
-langchain-community>=0.2.0
-langchain-groq>=0.1.0
+# ------------------------------------
+langchain>=0.2.16
+langchain-core>=0.2.38
+langgraph>=0.2.28             # StateGraph, persistence, HITL, interrupts
+langgraph-checkpoint-postgres>=2.0.0   # PostgresSaver for Neon/Postgres
+langchain-groq>=0.1.9         # Groq (Llama 3.1 70B) integration
+langchain-community>=0.2.16
+langchain-openai>=0.1.20      # Optional OpenAI fallback
 
-# Agents Tools / Integrations
-tavily-python>=0.3.3
+# ------------------------------------
+# Tools & Integrations
+# ------------------------------------
+tavily-python>=0.3.3          # Tavily web search
+httpx>=0.27.0                 # Async HTTP client
 
+# ------------------------------------
 # Database & Vector Store
-sqlalchemy>=2.0.30
-psycopg2-binary>=2.9.9
-pgvector>=0.2.5
-langchain-postgres>=0.0.6
+# ------------------------------------
+# psycopg3 (async-native) — REQUIRED for Neon + LangGraph async checkpointer
+psycopg[binary]>=3.1.18       # Async psycopg3 binary driver
+psycopg-pool>=3.2.1           # Connection pooling (essential for serverless)
 
+# psycopg2 kept for SQLAlchemy compatibility (sync paths)
+psycopg2-binary>=2.9.9        # Sync driver — SQLAlchemy
+
+sqlalchemy[asyncio]>=2.0.30   # ORM + async extension
+pgvector>=0.3.0               # PGVector ORM / SQLAlchemy types
+langchain-postgres>=0.0.12    # LangChain Postgres vector store integration
+
+# ------------------------------------
 # Observability
-langsmith>=0.1.60
+# ------------------------------------
+langsmith>=0.1.60             # LangSmith tracing (optional)
 
-# Utilities & Export Libraries
-httpx>=0.27.0
-grandalf>=0.8.0
-pygraphviz>=1.12
-pillow>=10.3.0
+# ------------------------------------
+# Export / Utilities
+# ------------------------------------
+markdown>=3.6                 # MD → HTML conversion (PDF export)
+grandalf>=0.8.0               # Graph ASCII visualisation (dev only)
+pillow>=10.3.0                # Image processing
+
+# ------------------------------------
+# Testing (install with: pip install -e ".[dev]")
+# ------------------------------------
+# pytest>=8.0.0
+# pytest-asyncio>=0.23.0
+# httpx>=0.27.0               # Already listed above
