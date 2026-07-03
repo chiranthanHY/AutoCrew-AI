@@ -86,6 +86,11 @@ class ExecutorAgent(BaseAgent):
         iteration = state.get("iteration", 0)
         previous_draft = state.get("draft", "")
         critique = state.get("critique", "")
+        memory_context = state.get("memory_context", "")
+
+        memory_section = ""
+        if memory_context:
+            memory_section = f"\n\n## Relevant Past Tasks (Long-Term Memory)\n{memory_context}\n\nUse these past examples for style and quality reference only.\n"
 
         # Build the execution prompt, including revision context if iterating
         if iteration > 0 and previous_draft and critique:
@@ -93,6 +98,7 @@ class ExecutorAgent(BaseAgent):
                 f"## Task\n{task}\n\n"
                 f"## Execution Plan\n{plan}\n\n"
                 f"## Research Findings\n{research_results}\n\n"
+                f"{memory_section}"
                 f"## Previous Draft (Revision #{iteration})\n{previous_draft}\n\n"
                 f"## Critic Feedback to Address\n{critique}\n\n"
                 "Please revise the draft by incorporating all the critic's feedback. "
@@ -103,6 +109,7 @@ class ExecutorAgent(BaseAgent):
                 f"## Task\n{task}\n\n"
                 f"## Execution Plan\n{plan}\n\n"
                 f"## Research Findings\n{research_results}\n\n"
+                f"{memory_section}"
                 "Using the plan as a guide and the research findings as your source of truth, "
                 "produce a complete, polished deliverable in Markdown format."
             )
@@ -110,6 +117,7 @@ class ExecutorAgent(BaseAgent):
         response: Dict[str, Any] = super().invoke(
             state=state,
             extra_human_message=prompt,
+            node_name="executor",
         )
 
         # Extract the text content from the AI response message
@@ -126,4 +134,5 @@ class ExecutorAgent(BaseAgent):
             "draft": draft_content,
             "messages": response["messages"],
             "iteration": iteration + 1,
+            "token_usage": response.get("token_usage", []),
         }

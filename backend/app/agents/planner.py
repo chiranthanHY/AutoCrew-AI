@@ -94,9 +94,13 @@ class PlannerAgent(BaseAgent):
             state=state,
             output_schema=Plan,
             extra_human_message=prompt,
+            node_name="planner",
         )
 
         plan_dicts = [step.model_dump() for step in structured_plan.steps]
         logger.info("[PlannerAgent] Generated plan with %d steps.", len(plan_dicts))
 
-        return {"plan": plan_dicts}
+        return {
+            "plan": plan_dicts,
+            "token_usage": [self.last_token_usage] if self.last_token_usage else [],
+        }

@@ -151,6 +151,7 @@ class CriticAgent(BaseAgent):
             state=state,
             output_schema=CritiqueOutput,
             extra_human_message=prompt,
+            node_name="critic",
         )
 
         # Determine routing: go to verifier if approved, else loop to executor
@@ -167,4 +168,5 @@ class CriticAgent(BaseAgent):
             "critique": critique_output.summary_feedback,
             "critique_score": critique_output.overall_score,
             "next": next_node,
+            "token_usage": [self.last_token_usage] if self.last_token_usage else [],
         }

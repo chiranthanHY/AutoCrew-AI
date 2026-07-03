@@ -105,6 +105,7 @@ class VerifierAgent(BaseAgent):
         response: Dict[str, Any] = super().invoke(
             state=state,
             extra_human_message=prompt,
+            node_name="verifier",
         )
 
         ai_message: AIMessage = response["messages"][0]
@@ -120,4 +121,5 @@ class VerifierAgent(BaseAgent):
             "final_output": final_output,
             "messages": response["messages"],
             "next": "END",
+            "token_usage": response.get("token_usage", []),
         }
