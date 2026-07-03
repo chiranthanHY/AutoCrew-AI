@@ -1,5 +1,11 @@
 """
-agents/__init__.py — AutoCrew AI Agent Registry
+agents/__init__.py — AutoCrew AI agent package.
+
+All five specialist agents are exported from this module so
+external code can import them cleanly:
+
+    from app.agents import PlannerAgent, ResearcherAgent, ExecutorAgent
+
 """
 
 from app.agents.base import BaseAgent
